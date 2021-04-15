@@ -1,0 +1,108 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>jetfighter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+    <!-- script src = "script.js"></script -->
+    <script type="application/processing" data-processing-target="pjs">
+
+        class jetFighter {
+        PVector pos;
+        PVector vel;
+        PVector accel;
+
+        float topsp;
+        float xoff;
+        float yoff;
+        float r;
+        jetFighter() {
+            pos= new PVector(width/2, height/2);
+            vel= new PVector(0, 0);
+            accel=  new PVector(0, 0);
+            topsp= 4;
+            xoff = 1000;
+            yoff = 0;
+            r = 16;
+        }
+    
+        void update() {
+            PVector mouse = new PVector(mouseX, mouseY);
+            PVector dir = PVector.sub(mouse, pos);
+            dir.normalize();
+            dir.mult(0.5);
+            accel = dir;
+        
+            vel.add(accel);
+            vel.limit(topsp);
+            pos.add(vel);
+      }
+    
+        void display(){
+        
+            float ang= vel.heading();
+            stroke(0, 0, 0);
+            strokeWeight(2);
+            noStroke();
+            fill(127, 127, 127);
+            pushMatrix();
+            rectMode(CENTER);
+            translate(pos.x, pos.y);
+            rotate(ang);
+            rect(0, 0, 30, 10);
+            rect(0, 10, 30, 10);
+            rotate(80);
+            fill(0, 0, 0);
+            text("Player 1", 10, 0);
+            popMatrix();
+            
+       }
+    
+        void checkEdges(){
+            if (pos.x > width) {
+                pos.x = 0;
+            }
+            if (pos.x < 0) {
+                pos.x = width;
+            }
+        
+            if (pos.y > height) {
+                pos.y = 0;
+            } 
+            if (pos.y < 0) {
+                pos.y = height;
+            }
+        }
+
+
+
+           
+
+    }
+    
+    jetFighter jet1;
+    
+    
+
+void setup() {
+    size(600, 600);
+    background(100);
+    jet1 = new jetFighter();
+}
+
+void draw() {
+    background(169, 230, 232);
+    jet1.update();
+    jet1.checkEdges();
+    jet1.display();
+}
+
+</script>
+</head>
+
+<body>
+
+    <canvas id="pjs"></canvas>
+</body>
+
+</html>

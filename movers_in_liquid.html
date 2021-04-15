@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Movers In Liquid</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+
+    class Liquid {
+
+
+  float x, y, w, h;
+  float c;
+
+  Liquid(float x_, float y_, float w_, float h_, float c_) {
+    x = x_;
+    y = y_;
+    w = w_;
+    h = h_;
+    c = c_;
+  }
+
+  // Is the Mover in the Liquid?
+  boolean contains(Mover m) {
+    PVector l = m.position;
+    return l.x > x && l.x < x + w && l.y > y && l.y < y + h;
+  }
+
+  PVector drag(Mover m) {
+    float speed = m.velocity.mag();
+    float dragMagnitude = c * speed * speed;
+
+    PVector dragForce = m.velocity.get();
+    dragForce.mult(-1);
+
+    dragForce.normalize();
+    dragForce.mult(dragMagnitude);
+    return dragForce;
+  }
+
+  void display() {
+    noStroke();
+    fill(50);
+    rect(x, y, w, h);
+  }
+}
+
+
+
+class Mover {
+
+  PVector position;
+  PVector velocity;
+  PVector acceleration;
+
+  float mass;
+
+  Mover(float m, float x, float y) {
+    mass = m;
+    position = new PVector(x, y);
+    velocity = new PVector(0, 0);
+    acceleration = new PVector(0, 0);
+  }
+
+  void applyForce(PVector force) {
+    PVector f = PVector.div(force, mass);
+    acceleration.add(f);
+  }
+
+  void update() {
+
+    velocity.add(acceleration);
+    position.add(velocity);
+    acceleration.mult(0);
+  }
+
+  void display() {
+    stroke(0);
+    strokeWeight(2);
+    fill(127, 200);
+    ellipse(position.x, position.y, mass*16, mass*16);
+  }
+
+  void checkEdges() {
+    if (position.y > height) {
+      velocity.y *= -0.9;  
+      position.y = height;
+    }
+  }
+}
+
+
+int numberofmovers = 100;
+Mover[] movers = new Mover[numberofmovers];
+
+Liquid liquid;
+
+void setup() {
+  size(640, 360);
+  reset();
+  liquid = new Liquid(0, height/2, width*2, height/2, 0.1);
+}
+
+void draw() {
+  background(255);
+
+  liquid.display();
+
+  for (int i = 0; i < movers.length; i++) {
+
+    if (liquid.contains(movers[i])) {
+      PVector dragForce = liquid.drag(movers[i]);
+      movers[i].applyForce(dragForce);
+    }
+
+    PVector gravity = new PVector(0, 0.1*movers[i].mass);
+    movers[i].applyForce(gravity);
+
+    movers[i].update();
+    movers[i].display();
+    movers[i].checkEdges();
+  }
+
+  fill(0);
+  text("click mouse to reset", 10, 30);
+}
+
+void mousePressed() {
+  reset();
+}
+
+void reset() {
+  for (int i = 0; i < movers.length; i++) {
+    movers[i] = new Mover(random(0.5, 3), 40+i*75, 0);
+  }
+}
+
+
+
+
+ </script>
+</head>
+
+<body>
+
+  <canvas id="pjs"></canvas>
+</body>
+
+</html>

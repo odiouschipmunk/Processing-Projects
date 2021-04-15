@@ -1,0 +1,31 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+
+  <title>Cantor set</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+    void cantor(float x, float y, float len) {
+  if (len >= 0.0001) {
+    line(x,y,x+len,y);
+    y += 20;
+    cantor(x,y,len/3);
+    cantor(x+len*2/3,y,len/3);
+  }
+}
+
+
+void setup(){
+ size(600, 600);
+ cantor(0, 10, width);
+}
+</script>
+</head>
+
+<body>
+
+  <canvas id="pjs"></canvas>
+</body>
+
+</html>

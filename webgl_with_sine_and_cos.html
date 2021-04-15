@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.10.2/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.10.2/addons/p5.sound.min.js"></script>
+    <meta charset="utf-8" />
+
+  </head>
+  <body>
+   <script>
+function setup() {
+  createCanvas(710, 400, WEBGL);
+}
+
+function draw() {
+  background(250);
+  orbitControl();
+  rotateY(frameCount * 0.01);
+
+  for (let j = 0; j < 5; j++) {
+    push();
+    for (let i = 0; i < 80; i++) {
+      translate(
+        sin(frameCount * 0.001 + j) * 10,
+        sin(frameCount * 0.001 + j) * 10,
+        i * 0.1
+      );
+      rotateZ(frameCount * 0.002);
+      push();
+      sphere(8, 6, 4);
+      pop();
+    }
+    pop();
+  }
+}
+
+  </script>
+  </body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Movers</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+
+   Mover m;
+   void setup(){
+    size(600, 600);
+    background(100);
+    m = new Mover();
+   }
+   
+   
+   void draw(){
+   //background(100);
+   m.run();
+   }
+   
+   
+   class Mover{
+    PVector location;
+    PVector vel;
+    PVector acc;
+    int topspeed;
+    Mover(){
+     location = new PVector(300, 300);
+     vel = new PVector(0, 0);
+     acc = new PVector(0, 0);
+     topspeed = 10;
+    }
+   
+    void update(){
+     location.add(vel);
+     vel.add(acc);
+     vel.limit(topspeed);
+    }
+   
+    void edges(){
+     if(location.x>600){
+      vel.mult(-1);
+     }
+     if(location.x<0){
+      vel.mult(-1);
+     }
+      if(location.y>600){
+      vel.mult(-1);
+     }
+     if(location.y<0){
+      vel.mult(-1);
+     }
+   
+    }
+   
+    void display(){
+     ellipse(location.x, location.y, 10, 10);
+    }
+     
+     void run(){
+      update();
+      edges();
+      display();
+      goToMouse();
+     }
+   
+   
+     void goToMouse(){
+       PVector mouse = new PVector(mouseX, mouseY);
+       PVector dir = PVector.sub(mouse,location);
+       dir.normalize();
+       acc = dir;
+     }
+   
+     void reset(){
+      location = new PVector(300, 300);
+      acc = new PVector(0, 0);
+      vel = new PVector(0, 0);
+     }
+   }
+   
+   void mousePressed(){
+    m.reset(); 
+   }
+
+
+  </script>
+ </head>
+ 
+ <body>
+ 
+   <canvas id="pjs"></canvas>
+ </body>
+ 
+ </html>

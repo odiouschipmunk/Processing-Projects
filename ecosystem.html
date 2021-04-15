@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Starfield</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+
+
+
+    ArrayList<Fruit> fruits;
+      ArrayList<Fish> fishes;
+      //can you say fishes?
+      //maybe I can make a virus class that will kill, or take away energy from an animal
+      //ArrayList<Virus> viruses;
+      
+      Fruit f;
+      Fish fish;
+      void setup(){
+       size(600, 600);
+       f = new Fruit(300, 300);
+      }
+      
+      void draw(){
+      f.display();
+      fish.update();
+      for(Fruit fruit: fruits){
+      for(Fish f: fishes){
+          if(f.onFood){
+          f.energy += fruit.getYums();
+          f.mass++;
+          f.topspeed-=0.1;
+        }
+      }
+      }
+      fish.display();
+
+      }
+      
+      
+      
+      
+       class Fruit {
+         PVector loc;
+         float red = random(255);
+         float green = random(255);
+         float yums;
+        
+      
+         Fruit(float x_, float y_) {
+          loc = new PVector(x_, y_);
+          yums = 2 * (float)Math.sqrt(red + green);
+        }
+      
+      
+         PVector getLocation() {
+          PVector l = loc.copy();  
+          return l;
+        }
+      
+      
+         float getYums() {
+          return yums;
+        }
+      
+      
+         void display() {
+          noStroke();
+          fill(red, green, 19);
+          ellipse(loc.x, loc.y, 16, 16);
+        }
+      
+      
+      
+       PVector attract(Fish f) {
+          PVector force = PVector.sub(loc, f.getLocation());
+          float distance = force.mag();
+      
+          if (distance > 100)
+            return force.mult(0);
+      
+          distance = constrain(distance, 5, 50);
+          force.normalize();
+          float strength = (yums * 4 * f.getSize()) / (distance * distance);
+          force.mult(strength);
+          return force;
+        }
+        //Maybe I can also make a life value, that will make the fruit rot, or something else
+      //Maybe if it rots, then animals will be repelled from it?
+      //Or maybe worms can come up and eat it
+      }
+      
+        
+      
+      
+      
+      
+      
+      
+      class Fish{
+       PVector loc;
+       PVector acc;
+       PVector vel;
+       float energy;
+       float mass;
+       int topspeed;
+       boolean onFood;
+      Fish(float x_, float y_, float m, float NRG){
+       loc = new PVector(x_, y_);
+       acc = new PVector(0, 0);
+       vel = new PVector(0, 0);
+       mass = m;
+       energy = NRG;
+      }
+      
+      float getSize(){
+       return mass; 
+      }
+      
+      PVector getLocation(){
+        PVector l = loc.copy();
+        return l;
+      }
+      
+      float getEnergy(){
+        return energy;
+      }
+      
+      void display(){
+        float choicex = random(-5, 5);
+        float choicey = random(-5, 5);
+        acc.add(choicex, choicey);
+        fill(255, 255, 255);
+        rect(loc.x, loc.y, mass, mass);
+      }
+      
+
+      
+      boolean onFood(){
+        float d = dist(f.loc.x, f.loc.y, loc.x, loc.y);
+        if(d<3){
+         return true; 
+        }
+        else{
+         return false; 
+        }
+      }
+      
+      void update(){
+      
+        loc.add(acc);
+        acc.add(vel);
+      }
+      
+      void run(){
+        update();
+        display();
+        
+      }
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>
+</head>
+
+<body>
+
+  <canvas id="pjs"></canvas>
+</body>
+
+</html>

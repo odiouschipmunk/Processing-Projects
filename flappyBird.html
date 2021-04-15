@@ -1,0 +1,154 @@
+<html>
+
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.6.1/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.6.1/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.6.1/addons/p5.sound.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/molleindustria/p5.play/lib/p5.play.js"></script>
+    <meta charset="utf-8" />
+
+  </head>
+
+  <body>
+    <script>
+
+
+
+function Pipe() {
+  this.level = 0;
+  var space = 200-frameCount/10;
+  this.spacing = constrain(space, 50, 10000000);
+  this.top = random(400 / 6, 3 / 4 * 400);
+  this.bottom = 400 - (this.top + this.spacing);
+  this.x = 400;
+  this.w = 8;
+  this.speed = 6;
+
+  this.highlight = false;
+
+  this.hits = function(bird) {
+    if (bird.y < this.top || bird.y > 400 - this.bottom) {
+      if (bird.x > this.x && bird.x < this.x + this.w) {
+        this.highlight = true;
+        return true;
+      }
+    }
+    this.highlight = false;
+    return false;
+  };
+
+  this.show = function() {
+    fill(255);
+    if (this.highlight) {
+      fill(255, 0, 0);
+    }
+    rect(this.x, 0, this.w, this.top);
+    rect(this.x, 400 - this.bottom, this.w, this.bottom);
+   
+  };
+
+  this.update = function() {
+    this.x -= this.speed;
+  };
+
+  this.offscreen = function() {
+    if (this.x < -this.w) {
+      return true;
+    } else {
+      return false;
+    }
+  };
+}
+
+function Bird() {
+  this.y = 400/2;
+  this.x = 64;
+  this.lives = 3;
+  this.gravity = 0.8;
+  this.lift = -12;
+  this.velocity = 0;
+
+  this.show = function() {
+    fill(255);
+    ellipse(this.x, this.y, 20, 20);
+  };
+
+  this.up = function() {
+    this.velocity += this.lift;
+  };
+
+  this.update = function() {
+    this.velocity += this.gravity;
+    // this.velocity *= 0.9;
+    this.y += this.velocity;
+
+    if (this.y > 400) {
+      this.y = 400;
+      this.velocity = 0;
+    }
+
+    if (this.y < 0) {
+      this.y = 0;
+      this.velocity = 0;
+    }
+
+  };
+}
+
+var bird;
+var pipes = [];
+
+bird = new Bird();
+pipes.push(new Pipe());
+function setup(){
+  createCanvas(400, 400);
+}
+
+function draw() {
+  
+  background(0);
+  for (var i = pipes.length-1; i >= 0; i--) {
+    pipes[i].show();-
+    pipes[i].update();
+
+    if (pipes[i].hits(bird)) {
+        bird.lives--;
+    }
+
+    if (pipes[i].offscreen()) {
+      pipes.splice(i, 1);
+    }
+  } 
+  bird.update();
+  bird.show();
+  text("lives:" + bird.lives, 20, 20);
+  if(bird.lives < 1){
+    fill(255);
+    textSize(30);
+    fill(255, 0, 0);
+    text("YOU LOST!!!", 200, 200);
+    noLoop();
+  }
+
+  if (frameCount % 75 === 0) {
+    pipes.push(new Pipe());   
+  }
+ 
+
+}
+
+function keyPressed() {
+    bird.up();
+}
+
+function mousePressed(){
+ bird.up();  
+}
+
+
+    </script>
+
+  </body>
+
+</html>
+

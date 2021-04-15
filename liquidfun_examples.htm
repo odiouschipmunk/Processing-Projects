@@ -1,0 +1,679 @@
+<!--
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<script src="https://google.github.io/liquidfun/testbed/liquidfun.js"></script>
+<script src="https://google.github.io/liquidfun/testbed/testbed/renderer.js"></script>
+<script src="https://google.github.io/liquidfun/testbed/testbed/three.js"></script>
+<style>
+    body{
+  height:100vh;
+  width:100vw;
+  background:#333;
+  aoverflow:hidden;
+  -webkit-filter:url('#filter') !important;
+          filter:url('#filter') !important;
+}
+canvas{
+  border:none !important;
+  aoutline:none !important;
+  height:100vh !important;
+  width:100vw !important;
+  position:absolute;
+  top:0;
+  left:0 !important;
+  -webkit-filter:url('#filter') !important;
+          filter:url('#filter') !important;
+}
+</style>
+<body>
+
+    <script>
+        // shouldnt be a global :(
+var particleColors = [
+  new b2ParticleColor(0xff, 0x00, 0x00, 0xff), // red
+  new b2ParticleColor(0x00, 0xff, 0x00, 0xff), // green
+  new b2ParticleColor(0x00, 0x00, 0xff, 0xff), // blue
+  new b2ParticleColor(0xff, 0x8c, 0x00, 0xff), // orange
+  new b2ParticleColor(0x00, 0xce, 0xd1, 0xff), // turquoise
+  new b2ParticleColor(0xff, 0x00, 0xff, 0xff), // magenta
+  new b2ParticleColor(0xff, 0xd7, 0x00, 0xff), // gold
+  new b2ParticleColor(0x00, 0xff, 0xff, 0xff) // cyan
+];
+var container;
+var world = null;
+var threeRenderer;
+var renderer;
+var camera;
+var scene;
+var objects = [];
+var timeStep = 1.0 / 60.0;
+var velocityIterations = 8;
+var positionIterations = 3;
+var test = {};
+var projector = new THREE.Projector();
+var planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+var g_groundBody = null;
+
+var windowWidth = window.innerWidth;
+var windowHeight = window.innerHeight;
+
+function printErrorMsg(msg) {
+  var domElement = document.createElement('div');
+  domElement.style.textAlign = 'center';
+  domElement.innerHTML = msg;
+  document.body.appendChild(domElement);
+}
+
+function initTestbed() {
+  camera = new THREE.PerspectiveCamera(70
+    , windowWidth / windowHeight
+    , 1, 1000);
+
+  try {
+    threeRenderer = new THREE.WebGLRenderer();
+  } catch( error ) {
+    printErrorMsg('<p>Sorry, your browser does not support WebGL.</p>'
+                + '<p>This testbed application uses WebGL to quickly draw'
+                + ' LiquidFun particles.</p>'
+                + '<p>LiquidFun can be used without WebGL, but unfortunately'
+                + ' this testbed cannot.</p>'
+                + '<p>Have a great day!</p>');
+    return;
+  }
+
+  threeRenderer.setClearColor(0x333333);
+  threeRenderer.setSize(windowWidth, windowHeight);
+
+  camera.position.x = 0;
+  camera.position.y = 0;
+  camera.position.z = 100;
+  scene = new THREE.Scene();
+  camera.lookAt(scene.position);
+
+  document.body.appendChild( this.threeRenderer.domElement);
+
+  this.mouseJoint = null;
+
+  // hack
+  renderer = new Renderer();
+  var gravity = new b2Vec2(0, -10);
+  world = new b2World(gravity);
+  Testbed();
+}
+
+function testSwitch(testName) {
+  ResetWorld();
+  world.SetGravity(new b2Vec2(0, -10));
+  var bd = new b2BodyDef;
+  g_groundBody = world.CreateBody(bd);
+  test = new window[testName];
+}
+
+function Testbed(obj) {
+  // Init world
+  //GenerateOffsets();
+  //Init
+  var that = this;
+  document.addEventListener('keypress', function(event) {
+    if (test.Keyboard !== undefined) {
+      test.Keyboard(String.fromCharCode(event.which) );
+    }
+  });
+  document.addEventListener('keyup', function(event) {
+    if (test.KeyboardUp !== undefined) {
+      test.KeyboardUp(String.fromCharCode(event.which) );
+    }
+  });
+
+  document.addEventListener('mousedown', function(event) {
+    var p = getMouseCoords(event);
+    var aabb = new b2AABB;
+    var d = new b2Vec2;
+
+    d.Set(0.01, 0.01);
+    b2Vec2.Sub(aabb.lowerBound, p, d);
+    b2Vec2.Add(aabb.upperBound, p, d);
+
+    var queryCallback = new QueryCallback(p);
+    world.QueryAABB(queryCallback, aabb);
+
+    if (queryCallback.fixture) {
+      var body = queryCallback.fixture.body;
+      var md = new b2MouseJointDef;
+      md.bodyA = g_groundBody;
+      md.bodyB = body;
+      md.target = p;
+      md.maxForce = 1000 * body.GetMass();
+      that.mouseJoint = world.CreateJoint(md);
+      body.SetAwake(true);
+    }
+    if (test.MouseDown !== undefined) {
+      test.MouseDown(p);
+    }
+
+  });
+
+  document.addEventListener('mousemove', function(event) {
+    var p = getMouseCoords(event);
+    if (that.mouseJoint) {
+      that.mouseJoint.SetTarget(p);
+    }
+    if (test.MouseMove !== undefined) {
+      test.MouseMove(p);
+    }
+  });
+
+  document.addEventListener('mouseup', function(event) {
+    if (that.mouseJoint) {
+      world.DestroyJoint(that.mouseJoint);
+      that.mouseJoint = null;
+    }
+    if (test.MouseUp !== undefined) {
+      test.MouseUp(getMouseCoords(event));
+    }
+  });
+
+
+  window.addEventListener( 'resize', onWindowResize, false );
+
+  testSwitch("TestWaveMachine");
+
+  render();
+}
+
+var render = function() {
+  // bring objects into world
+  renderer.currentVertex = 0;
+  if (test.Step !== undefined) {
+    test.Step();
+  } else {
+    Step();
+  }
+  renderer.draw();
+
+  threeRenderer.render(scene, camera);
+  requestAnimationFrame(render);
+};
+
+var ResetWorld = function() {
+  if (world !== null) {
+    while (world.joints.length > 0) {
+      world.DestroyJoint(world.joints[0]);
+    }
+
+    while (world.bodies.length > 0) {
+      world.DestroyBody(world.bodies[0]);
+    }
+
+    while (world.particleSystems.length > 0) {
+      world.DestroyParticleSystem(world.particleSystems[0]);
+    }
+  }
+  camera.position.x = 0;
+  camera.position.y = 0;
+  camera.position.z = 100;
+};
+
+var Step = function() {
+  world.Step(timeStep, velocityIterations, positionIterations);
+};
+
+/**@constructor*/
+function QueryCallback(point) {
+  this.point = point;
+  this.fixture = null;
+}
+
+/**@return bool*/
+QueryCallback.prototype.ReportFixture = function(fixture) {
+  var body = fixture.body;
+  if (body.GetType() === b2_dynamicBody) {
+    var inside = fixture.TestPoint(this.point);
+    if (inside) {
+      this.fixture = fixture;
+      return true;
+    }
+  }
+  return false;
+};
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  //camera.updateProjectionMatrix();
+  threeRenderer.setSize( window.innerWidth - '100', window.innerHeight );
+}
+
+function getMouseCoords(event) {
+  var mouse = new THREE.Vector3();
+  mouse.x = (event.clientX / windowWidth) * 2 - 1;
+  mouse.y = -(event.clientY / windowHeight) * 2 + 1;
+  mouse.z = 0.5;
+
+  projector.unprojectVector(mouse, camera);
+  var dir = mouse.sub(camera.position).normalize();
+  var distance = -camera.position.z / dir.z;
+  var pos = camera.position.clone().add(dir.multiplyScalar(distance));
+  var p = new b2Vec2(pos.x, pos.y);
+  return p;
+}
+
+
+
+
+
+
+function TestWaveMachine() {
+  camera.position.y = 1;
+  camera.position.z = 2.5;
+
+  var bd = new b2BodyDef();
+  var ground = world.CreateBody(bd);
+
+  bd.type = b2_dynamicBody;
+  bd.allowSleep = false;
+  bd.position.Set(0, 1);
+  var body = world.CreateBody(bd);
+
+  var b1 = new b2PolygonShape();
+  b1.SetAsBoxXYCenterAngle(0.05, 1, new b2Vec2(2, 0), 0);
+  body.CreateFixtureFromShape(b1, 5);
+
+  var b2 = new b2PolygonShape();
+  b2.SetAsBoxXYCenterAngle(0.05, 1, new b2Vec2(-2, 0), 0);
+  body.CreateFixtureFromShape(b2, 5);
+
+  var b3 = new b2PolygonShape();
+  b3.SetAsBoxXYCenterAngle(2, 0.05, new b2Vec2(0, 1), 0);
+  body.CreateFixtureFromShape(b3, 5);
+
+  var b4 = new b2PolygonShape();
+  b4.SetAsBoxXYCenterAngle(2, 0.05, new b2Vec2(0, -1), 0);
+  body.CreateFixtureFromShape(b4, 5);
+
+  var jd = new b2RevoluteJointDef();
+  jd.motorSpeed = 0.05 * Math.PI;
+  jd.maxMotorTorque = 1e7;
+  jd.enableMotor = true;
+  this.joint = jd.InitializeAndCreate(ground, body, new b2Vec2(0, 1));
+  this.time = 0;
+
+  // setup particles
+  var psd = new b2ParticleSystemDef();
+  psd.radius = 0.025;
+  psd.dampingStrength = 0.2;
+
+  var particleSystem = world.CreateParticleSystem(psd);
+  var box = new b2PolygonShape();
+  box.SetAsBoxXYCenterAngle(0.9, 0.9, new b2Vec2(0, 1.0), 0);
+
+  var particleGroupDef = new b2ParticleGroupDef();
+  particleGroupDef.shape = box;
+  var particleGroup = particleSystem.CreateParticleGroup(particleGroupDef);
+}
+
+TestWaveMachine.prototype.Step = function() {
+  world.Step(timeStep, velocityIterations, positionIterations);
+  this.time += 1 / 60;
+  this.joint.SetMotorSpeed(0.05 * Math.cos(this.time) * Math.PI);
+}
+
+
+
+
+
+
+
+document.body.onload = initTestbed();
+testSwitch('TestDamBreak');
+function TestDamBreak() {
+ 
+  camera.position.y = 1;//2
+  camera.position.z = 2;//3
+  var bodyDef = new b2BodyDef();
+
+  bodyDef.position.x = 0;
+  bodyDef.position.y = -0.5;
+
+  var ground = world.CreateBody(bodyDef);
+
+  var chainShape = new b2ChainShape();
+  chainShape.vertices.push(new b2Vec2(-2, 0));
+  chainShape.vertices.push(new b2Vec2(2, 0));
+  chainShape.vertices.push(new b2Vec2(2, 4));
+  chainShape.vertices.push(new b2Vec2(-2, 4));
+
+  chainShape.CreateLoop();
+  ground.CreateFixtureFromShape(chainShape, 10);
+
+  var shape = new b2PolygonShape;
+
+  shape.SetAsBoxXYCenterAngle(1, 1, new b2Vec2(1, 1.01), 0);
+
+  var psd = new b2ParticleSystemDef();
+  psd.radius = 0.025;
+  psd.dampingStrength = 0.2;
+
+  var particleSystem = world.CreateParticleSystem(psd);
+
+  var pd = new b2ParticleGroupDef();
+  pd.shape = shape;
+  pd.color.Set(22, 160, 133);
+  var group = particleSystem.CreateParticleGroup(pd);
+}
+    </script>
+</body>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1">
+    <defs>
+      <filter id="filter">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"/>
+        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="filter"/>
+        <feComposite in="SourceGraphic" in2="filter" operator="atop"/>
+        <feBlend  mode="darken" in="SourceGraphic" />
+
+      </filter>
+    </defs>
+  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+-->
+
+<div id="canvas"></div>
+<h1 id="info">Click anywhere to add some more orange juice!</h1>    
+<style>
+@import url("https://fonts.googleapis.com/css?family=Overpass");
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
+}
+
+body {
+  background-color: black;
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+h1 {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  text-align: center;
+  font-size: 20px;
+  font-family: 'Overpass', sans-serif;
+  color: #8D8AB5;
+  padding: 20px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+@media (max-height: 580px) {
+  h1 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 600px) {
+  h1 {
+    font-size: 12px;
+  }
+}
+
+</style>
+
+<script>
+"use strict";
+console.clear();
+// These are the colors used for the orange juice particles. 
+// I did have a few variations of yellow-orange but it looked 
+// strange, so one color for now
+var colors = [0xF9B52C];
+// The liquid simulation and particle rendering are actually seperate 
+// things independant of each other. Pixi.js knows nothing of LiquidFun
+// and vise versa.
+// This Stage class is where I do all my Pixi.js (canvas) stuff.
+var Stage = /** @class */function () {
+  // constructor is a function that gets called when you create a new
+  // instance of this class. E.G...
+  //
+  // let stage = new Stage(element); 
+  //
+  // We pass in the HTMLElement, that way would could have 2 or more 
+  // of these on the page if we wanted.
+  function Stage(canvas) {
+    // Create a new Pixi.js application, and add the canvas to our HTMLElement container
+    this.containers = [];
+    this.particles = [];
+    this.textures = [];
+    this.onResize = function () {
+      // We center everything when the window resizes
+      this.app.renderer.resize(this.element.offsetWidth, this.element.offsetHeight);
+      this.stage.position.x = window.innerWidth / 2;
+      this.stage.position.y = window.innerHeight / 2;
+    };
+    this.newParticle = function (color) {
+      // this function makes 1 particle, adds it to the
+      // ParticleContainer and returns it.
+      // This function is called from outside the class.
+      // First off lets grab a random color, we only have
+      // one so i will always equal 0 for now.
+      var i = Math.floor(Math.random() * this.textures.length);
+      var texture = this.textures[i];
+      var container = this.containers[i];
+      // make a new particle sprite from the texture and 
+      // add it to the correct ParticleContainer
+      var sprite = new PIXI.Sprite(texture);
+      sprite.index = i;
+      this.particles.push(sprite);
+      this.add(sprite, i);
+      // return the particle so the main app can update
+      // it's position later.
+      return sprite;
+    };
+    this.add = function (element, i) {
+      this.containers[i].addChild(element);
+    };
+    this.remove = function (element, i) {
+      this.containers[i].removeChild(element);
+    };
+    this.element = canvas;
+    this.app = new PIXI.Application(this.element.offsetWidth, this.element.offsetHeight, { antialias: false, backgroundColor: 0xD3CFE5 });
+    this.element.appendChild(this.app.view);
+    // The stage container is where we put everything you see.
+    // It's usefull to have a root container, that way we can 
+    // move, rotate, etc everything in one go.
+    this.stage = new PIXI.Container();
+    this.app.stage.addChild(this.stage);
+    // We're also going to have another container to hold all 
+    // the particles and glass assets. Then juiceContainer gets
+    // added to the stage container.
+    this.juiceContainer = new PIXI.Container();
+    this.stage.addChild(this.juiceContainer);
+    // The glass is made up of 2 images. The 'glass' image sits
+    // behind the particles and 'shine' image sits above. That 
+    // helps make the juice look as if its inside the glass.
+    var glassTexture = PIXI.Texture.fromImage('https://s3-us-west-2.amazonaws.com/s.cdpn.io/557388/glass.png');
+    var glass = new PIXI.Sprite(glassTexture);
+    glass.scale.set(0.5, 0.49);
+    glass.position.x = -106;
+    glass.position.y = -100;
+    var shineTexture = PIXI.Texture.fromImage('https://s3-us-west-2.amazonaws.com/s.cdpn.io/557388/shine.png');
+    var shine = new PIXI.Sprite(shineTexture);
+    shine.scale.set(0.5, 0.49);
+    shine.position.x = -78;
+    shine.position.y = -100;
+    // We need to add the glass image first, then the 
+    // particleContainers and finally the shine added 
+    // last (so its on top)
+    this.juiceContainer.addChild(glass);
+    for (var i = 0; i < colors.length; i++) {
+      // To keep things fast we're going to use 
+      // ParticleContainers. These are similar to normal
+      // containers but with some restrictions to help
+      // keep performance up. One of the restrictions is
+      // you can only have one particle type in each container.
+      // This is why we're creating a new container for each
+      // color. At the moment we only have one color so there
+      // will only be one ParticleContainer.
+      var container = new PIXI.particles.ParticleContainer(10000);
+      this.containers.push(container);
+      this.juiceContainer.addChild(container);
+      // We also need to draw the particle texture as well. 
+      // This will be used later when we create the new 
+      // particle sprites.
+      var graphic = new PIXI.Graphics();
+      graphic.lineStyle(0);
+      graphic.beginFill(colors[i], 0.8);
+      graphic.drawCircle(0, 0, 3);
+      graphic.endFill();
+      var texture = this.app.renderer.generateTexture(graphic);
+      this.textures.push(texture);
+    }
+    this.juiceContainer.addChild(shine);
+    this.onResize();
+  }
+  return Stage;
+}();
+// This Sim class is where most of the LiquidFun (Box2D) stuff is done.
+var Sim = /** @class */function () {
+  function Sim(world) {
+    // I originally had the Sim class create it's own 
+    // world but a bug (i think) meant that LiquidFun
+    // got confused with world vs this.world.
+    // having the world created outside the class and
+    // passed in the constructor seemed to fix the issue
+    var _this = this;
+    this.width = 0;
+    this.height = 0;
+    // these are setting for the simulation
+    this.timeStep = 1.0 / 60.0;
+    this.velocityIterations = 8;
+    this.positionIterations = 3;
+    this.cooldown = 200;
+    this.cooling = false;
+    // these consts define how things are positioned
+    // outside the sim. METER is used to scale up
+    // the simulations positions to standard pixels.
+    // So for example when the Sim says a particle is
+    // at 0.33 the output for Pixi.js will be 33px
+    this.METER = 100;
+    this.OFFSET_X = 0;
+    this.OFFSET_Y = 0;
+    this.PADDING = 50;
+    this.onResize = function () {
+      var h = window.innerHeight;
+      this.width = 200;
+      this.height = 300;
+      this.height -= this.PADDING;
+    };
+    this.onMotion = function (x, y) {
+      if (x && y) {
+        var gravity_1 = new b2Vec2(-y / 5, x / 4);
+        this.world.SetGravity(gravity_1);
+      }
+    };
+    this.step = function () {
+      this.world.Step(this.timeStep, this.velocityIterations, this.positionIterations);
+      this.time += 1 / 60;
+    };
+    this.addParticles = function () {
+      var _this = this;
+      if (!this.cooling) {
+        this.cooling = true;
+        this.particle.position.Set((25 + Math.random() * (this.width - 50)) / this.METER, (-this.height + Math.random() * 100) / this.METER);
+        this.particle.radius = 0.25;
+        var particleGroupDef = new b2ParticleGroupDef();
+        particleGroupDef.shape = this.particle;
+        this.particleSystem.CreateParticleGroup(particleGroupDef);
+        setTimeout(function () {_this.cooling = false;}, this.cooldown);
+      }
+    };
+    this.world = world;
+    var liquidContainerDef = new b2BodyDef();
+    var liquidContainer = this.world.CreateBody(liquidContainerDef);
+    this.onResize();
+    var floor = this.createWallShape(this.width / this.METER / 2, 0.05, new b2Vec2(this.width / this.METER / 2, this.height / this.METER + 0.05));
+    var leftWall = this.createWallShape(0.05, this.height / this.METER / 2, new b2Vec2(-0.05, this.height / this.METER / 2));
+    var rightWall = this.createWallShape(0.05, this.height / this.METER / 2, new b2Vec2(this.width / this.METER + 0.05, this.height / this.METER / 2));
+    liquidContainer.CreateFixtureFromDef(floor);
+    liquidContainer.CreateFixtureFromDef(leftWall);
+    liquidContainer.CreateFixtureFromDef(rightWall);
+    var particleSystemDef = new b2ParticleSystemDef();
+    particleSystemDef.radius = 0.03;
+    particleSystemDef.dampingStrength = 0.2;
+    this.particleSystem = this.world.CreateParticleSystem(particleSystemDef);
+    this.particle = new b2CircleShape();
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener("deviceorientation", function (e) {
+        _this.onMotion(e.beta, e.gamma);
+      }, true);
+    } else
+    if (window.DeviceMotionEvent) {
+      window.addEventListener('devicemotion', function (e) {
+        _this.onMotion(e.acceleration.x * 2, e.acceleration.y * 2);
+      }, true);
+    }
+  }
+  Sim.prototype.createWallShape = function (width, height, angle) {
+    var wallShape = new b2PolygonShape();
+    wallShape.SetAsBoxXYCenterAngle(width, height, angle, 0);
+    var fixtureDef = new b2FixtureDef();
+    fixtureDef.shape = wallShape;
+    fixtureDef.density = 5;
+    return fixtureDef;
+  };
+  Sim.prototype.getParticles = function () {
+    return this.world.particleSystems[0].GetPositionBuffer();
+  };
+  return Sim;
+}();
+var stage = new Stage(document.getElementById('canvas'));
+var gravity = new b2Vec2(0, 10);
+var world = new b2World(gravity);
+var sim = new Sim(world);
+window.addEventListener('resize', function (e) {
+  sim.onResize();
+  stage.onResize();
+});
+function tick() {
+  sim.step();
+  var particles = sim.getParticles();
+  for (var i = 0; i < particles.length / 2; i++) {
+    var p = !stage.particles[i] ? stage.newParticle() : stage.particles[i];
+    if (p.position.y > window.innerHeight / 2 && !p.removed) {
+      stage.remove(p, p.index);
+      p.removed = true;
+    } else
+    {
+      var x = sim.width / 2 - particles[i * 2] * sim.METER + sim.OFFSET_X;
+      var y = sim.height - 100 - (sim.height - particles[i * 2 + 1] * sim.METER + sim.OFFSET_Y);
+      p.position.set(x, y);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+window.addEventListener('click', function () {sim.addParticles();});
+window.addEventListener('touchstart', function () {sim.addParticles();});
+sim.addParticles();
+if (location.pathname.match(/fullcpgrid/i)) {
+  document.getElementById('info').style.visibility = "hidden";
+  setInterval(function () {sim.addParticles();}, 500);
+}
+tick();
+</script>
